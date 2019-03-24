@@ -1,0 +1,5 @@
+export * from './student.model'
+export * from './tutor.model'
+export * from './user.model'
+export * from './note.model'
+export * from './result.model'

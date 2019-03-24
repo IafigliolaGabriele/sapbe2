@@ -6,7 +6,8 @@ import {Observable} from 'rxjs';
 import { map } from 'rxjs/operators';
 import { query } from '@angular/core/src/render3/query';
 import { FormGroup, Validators, FormBuilder } from '@angular/forms';
-import {NetworkService} from '../../services/network.service';
+import  {NetworkService } from '../../services/network.service';
+import  { DatabaseService } from '../../services/database.service';
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.component.html',
@@ -28,7 +29,8 @@ export class DashboardComponent implements OnInit {
     private db: AngularFireDatabase,
     private auth: AuthService,
     private fb: FormBuilder,
-    private network: NetworkService) {
+    private network: NetworkService,
+    private database: DatabaseService) {
       this.studentForm = this.fb.group({
         name: ['', Validators.required ],
         type: ['', Validators.required ],
@@ -41,54 +43,101 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit() {
     this.getPeriod();
-    this.db.list('/users/', ref => ref.orderByKey().equalTo(this.auth.userKey)).valueChanges().subscribe(data => {
-      console.log('Tutor', data[0]['email']);
-      this.tutor = data[0];
-      console.log('Tutor2', this.tutor.role);
-      if (this.tutor.role == 'admin') {
-        this.db.list('/students').valueChanges().subscribe(students => {
-          this.students = [];
-          students.forEach(data => {
-            let newStudent = {
-              id: data['personalId'],
-              name: data['name'],
-              type: data['type'],
-              tutor: data['tutor_name'],
-              percentage: data['percentage']
-            };
-            console.log('Estudiante:', data);
-            this.students.push(newStudent);
-          });
-        });
-      } else {
-        this.db.list('/students', ref => ref.orderByChild('tutor_key').equalTo(this.auth.userKey)).valueChanges().subscribe(students => {
-          this.students = [];
-          students.forEach(data => {
-            let newStudent = {
-              id: data['personalId'],
-              name: data['name'],
-              type: data['type'],
-              tutor: data['tutor_name'],
-              percentage: data['percentage']
-            };
-            console.log('Estudiante:', data);
-            this.students.push(newStudent);
-          });
-        });
+    this.database.getUserByID(this.auth.userKey).subscribe(user=>{
+      console.log("User",user)
+      this.tutor = user;
+      if(this.tutor.admin){
+        this.tutor.role = 'admin'
       }
-    });
+      console.log('Tutor2', this.tutor.role);
+      if(this.tutor.role == 'admin'){
+        this.database.getAllStudents().subscribe( students=>{
+          this.students = [];
+          students.forEach(student => {
+            let newStudent = {
+              id: student.payload.doc.data()['personalId'],
+              name: student.payload.doc.data()['name'],
+              type: student.payload.doc.data()['type'],
+              tutor: student.payload.doc.data()['tutor_name'],
+              percentage: student.payload.doc.data()['percentage']
+            };
+            console.log('Estudiante:', student);
+            this.students.push(newStudent);
+          });
+        })
+      }else{
+        this.database.getTutorStudents(this.auth.userKey).subscribe( students=>{
+          this.students = [];
+          students.forEach(student => {
+            let newStudent = {
+              id: student.payload.doc.data()['personalId'],
+              name: student.payload.doc.data()['name'],
+              type: student.payload.doc.data()['type'],
+              tutor: student.payload.doc.data()['tutor_name'],
+              percentage: student.payload.doc.data()['percentage']
+            };
+            console.log('Estudiante:', student);
+            this.students.push(newStudent);
+          });
+        })
+      }
+    })
+    // this.db.list('/users/', ref => ref.orderByKey().equalTo(this.auth.userKey)).valueChanges().subscribe(data => {
+    //   console.log('Tutor', data[0]['email']);
+    //   this.tutor = data[0];
+    //   console.log('Tutor2', this.tutor.role);
+    //   if (this.tutor.role == 'admin') {
+    //     this.db.list('/students').valueChanges().subscribe(students => {
+    //       this.students = [];
+    //       students.forEach(data => {
+    //         let newStudent = {
+    //           id: data['personalId'],
+    //           name: data['name'],
+    //           type: data['type'],
+    //           tutor: data['tutor_name'],
+    //           percentage: data['percentage']
+    //         };
+    //         console.log('Estudiante:', data);
+    //         this.students.push(newStudent);
+    //       });
+    //     });
+    //   } else {
+    //     this.db.list('/students', ref => ref.orderByChild('tutor_key').equalTo(this.auth.userKey)).valueChanges().subscribe(students => {
+    //       this.students = [];
+    //       students.forEach(data => {
+    //         let newStudent = {
+    //           id: data['personalId'],
+    //           name: data['name'],
+    //           type: data['type'],
+    //           tutor: data['tutor_name'],
+    //           percentage: data['percentage']
+    //         };
+    //         console.log('Estudiante:', data);
+    //         this.students.push(newStudent);
+    //       });
+    //     });
+    //   }
+    // });
       this.students = [];
-
-      this.db.list('/users/').snapshotChanges().subscribe(data => {
-        data.map(c => {
-          let tutor: any = c.payload.val();
+      this.database.getAllUsers().subscribe(users=>{
+        users.forEach(user => {
           this.tutorList.push({
-            key: c.payload.key,
-            name: tutor.username
+            key: user.payload.doc.id,
+            name: user.payload.doc.data()['username']
           });
           console.log('datos,', this.tutorList);
         });
-      });
+      })
+      // this.db.list('/users/').snapshotChanges().subscribe(data => {
+      //   data.map(c => {
+      //     let tutor: any = c.payload.val();
+      //     this.tutorList.push({
+      //       key: c.payload.key,
+      //       name: tutor.username
+      //     });
+      //     console.log('datos,', this.tutorList);
+      //   });
+      // });
   }
   getPeriod() {
     if (this.today.getMonth() <= 2) {
@@ -145,7 +194,8 @@ export class DashboardComponent implements OnInit {
       newStudent['tutor_name'] = await this.getName(newStudent.tutor_key);
       newStudent['percentage'] = 0;
       console.log('student', newStudent);
-      this.db.list('/students/').push(newStudent);
+      //this.db.list('/students/').push(newStudent);
+      this.database.addStudent(newStudent);
     }
   }
 

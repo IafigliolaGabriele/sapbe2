@@ -1,5 +1,6 @@
 export class Tutor {
-    email: string
-    username: string
-    role: string
+    _key: String
+    email: String
+    username: String
+    role: String
 }

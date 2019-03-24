@@ -35,12 +35,12 @@ export class NetworkService {
     private http: HttpClient
   ) { 
   
-    this.db.list('models').valueChanges().subscribe(architecture=>{
-        console.log("arquitecture",architecture[0]);
-        this.network = Network.fromJSON(architecture[0]);
-        let result = this.network.activate([0,1,0,0,1,0,0]);
-        console.log("Result:",result)
-    })
+    // this.db.list('models').valueChanges().subscribe(architecture=>{
+    //     console.log("arquitecture",architecture[0]);
+    //     this.network = Network.fromJSON(architecture[0]);
+    //     let result = this.network.activate([0,1,0,0,1,0,0]);
+    //     console.log("Result:",result)
+    // })
     //this.network.fromJSON()
     //this.network = Network.fromJSON(exported);
   }

@@ -9,6 +9,7 @@ import { FirebaseUserModel } from '../../../models/user.model';
 import {AngularFireDatabase,AngularFireObject,AngularFireList} from 'angularfire2/database'
 import {Observable} from 'rxjs'
 import { map } from 'rxjs/operators';
+import { DatabaseService } from '../../../services/database.service';
 
 @Component({
   selector: 'app-navbar',
@@ -24,7 +25,8 @@ export class NavbarComponent implements OnInit {
   constructor(public userService: UserService,
     public authService: AuthService,
     private router: Router, 
-    private db: AngularFireDatabase) { 
+    private db: AngularFireDatabase,
+    private database: DatabaseService) { 
       //this.currentUser = this.authService.userKey;
       /* this.db.database.ref().child('/users/'+this.currentUser).once('value').then(function(snapshot) {
         var username = (snapshot.val().username) || 'Anonymous';
@@ -39,10 +41,13 @@ export class NavbarComponent implements OnInit {
     ngOnInit(): void {
       console.log(this.currentUser);
       console.log("UserKey",this.authService.userKey)
-      this.db.list("/users/",ref=> ref.orderByKey().equalTo(this.authService.userKey)).valueChanges().subscribe(user=>{
-          let usr = user[0];
-          console.log("Usr",usr['username'])
-          this.currentUserName = usr['username'];
+      // this.db.list("/users/",ref=> ref.orderByKey().equalTo(this.authService.userKey)).valueChanges().subscribe(user=>{
+      //     let usr = user[0];
+      //     console.log("Usr",usr['username'])
+      //     this.currentUserName = usr['username'];
+      // })
+      this.database.getUserByID(this.authService.userKey).subscribe(user=>{
+        this.currentUserName = user['username'];
       })
     }
 

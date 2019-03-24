@@ -8,6 +8,8 @@ import { UserService } from '../../services/user.service';
 import { FormGroup, Validators, FormBuilder } from '@angular/forms';
 import {NetworkService} from '../../services/network.service';
 import { AuthService } from '../../services/auth.service';
+import { DatabaseService } from '../../services/database.service';
+import { Tutor, Note, Result } from '../../models';
 @Component({
   selector: 'app-students',
   templateUrl: './students.component.html',
@@ -55,7 +57,9 @@ export class StudentsComponent implements OnInit {
     private auth: AuthService,
     public userService: UserService,
     private networkService: NetworkService,
-    private fb: FormBuilder) { 
+    private fb: FormBuilder,
+    private database :DatabaseService
+  ) { 
       this.noteForm = this.fb.group({
         date: ['', Validators.required ],
         type: ['', Validators.required ],
@@ -77,47 +81,88 @@ export class StudentsComponent implements OnInit {
   ngOnInit() {
     let id = Number(this.route.snapshot.params.id)
     console.log("prueba")
-    this.db.list('/users/', ref=> ref.orderByKey().equalTo(this.auth.userKey)).valueChanges().subscribe(data=>{
-      console.log("Tutor",data[0]['email'])
-      this.tutor = data[0];
-      //this.tutor.role = this.tutor.role.toString()
-      console.log("Tutor2",this.tutor.role)
+    // this.db.list('/users/', ref=> ref.orderByKey().equalTo(this.auth.userKey)).valueChanges().subscribe(data=>{
+    //   console.log("Tutor",data[0]['email'])
+    //   this.tutor = data[0];
+    //   //this.tutor.role = this.tutor.role.toString()
+    //   console.log("Tutor2",this.tutor.role)
+    // })
+    this.database.getUserByID(this.auth.userKey).subscribe(user=>{
+      this.tutor = user
+      if(this.tutor.admin){
+        this.tutor.role = 'admin'
+      }else{
+        this.tutor.role = 'normal'
+      }
     })
     console.log("ID:",id)
-    this.db.list("/users/").snapshotChanges().subscribe(data=>{
-      data.map(c=>{
-        let tutor:any = c.payload.val();
+    this.database.getAllUsers().subscribe(users=>{
+      //this.tutorList = []
+      users.forEach(user => {
+        let tutor = user.payload.doc.data();
         this.tutorList.push({
-          key: c.payload.key,
+          key: user.payload.doc.id,
           name: tutor.username
         })
         console.log("datos,",this.tutorList)
+      });
+    })
+    // this.db.list("/users/").snapshotChanges().subscribe(data=>{
+    //   data.map(c=>{
+    //     let tutor:any = c.payload.val();
+    //     this.tutorList.push({
+    //       key: c.payload.key,
+    //       name: tutor.username
+    //     })
+    //     console.log("datos,",this.tutorList)
+    //   })
+    // })
+    this.database.getStudentByPersonalId(id).subscribe(student=>{
+      this.student = student[0].payload.doc.data();
+      this.studentKey = student[0].payload.doc.id;
+      this.annotations =[];
+      this.model =[];
+      this.database.getStudentNotes(this.studentKey).subscribe(notes=>{
+        notes.forEach(note => {
+          let currentNote: Note = note.payload.doc.data() as Note
+          currentNote._key = note.payload.doc.id;
+          this.annotations.push(currentNote); 
+        });
+      })
+      this.database.getStudentResults(this.studentKey).subscribe(results=>{
+        results.forEach(result => {
+          let currentResult: Result = result.payload.doc.data() as Result
+          this.currentModel._key = result.payload.doc.id
+          this.model.push(currentResult)
+          this.lastPercentage = currentResult.percentage * 100;
+          console.log(this.lastPercentage);
+        });
       })
     })
-    this.db.list("/students/", ref=> ref.orderByChild("personalId").equalTo(id)).snapshotChanges().subscribe(data=>{
-      data.map(c=>{
-        this.student = c.payload.val();
-        this.studentKey = c.payload.key;
-        this.annotations =[];
-        this.model =[];
-        this.db.list("/students/"+this.studentKey+"/notes").valueChanges().subscribe(data=>{
-          this.annotations =[]; 
-          data.forEach((note:any)=>{
-              this.annotations.push(note);
-            })
-        })
+    // this.db.list("/students/", ref=> ref.orderByChild("personalId").equalTo(id)).snapshotChanges().subscribe(data=>{
+    //   data.map(c=>{
+    //     this.student = c.payload.val();
+    //     this.studentKey = c.payload.key;
+    //     this.annotations =[];
+    //     this.model =[];
+    //     this.db.list("/students/"+this.studentKey+"/notes").valueChanges().subscribe(data=>{
+    //       this.annotations =[]; 
+    //       data.forEach((note:any)=>{
+    //           this.annotations.push(note);
+    //         })
+    //     })
 
-        this.db.list("/students/"+this.studentKey+"/results").valueChanges().subscribe(data=>{
-          this.model = [];
-          data.forEach((result:any)=>{
-            this.model.push(result)
-            this.lastPercentage=result.percentage *100;
-            console.log(this.lastPercentage);
-          })
+    //     this.db.list("/students/"+this.studentKey+"/results").valueChanges().subscribe(data=>{
+    //       this.model = [];
+    //       data.forEach((result:any)=>{
+    //         this.model.push(result)
+    //         this.lastPercentage=result.percentage *100;
+    //         console.log(this.lastPercentage);
+    //       })
 
-      })
-      })
-    })
+    //   })
+    //   })
+    // })
   }
 
   filterIt(arr, searchKey) {
@@ -173,8 +218,10 @@ export class StudentsComponent implements OnInit {
   async saveNote(id){
     if(id== 'newNote'){
       let newNote = this.noteForm.value;
-       console.log("nota",newNote) 
-      this.db.list("/students/"+this.studentKey+"/notes/").push(newNote);
+      newNote.student_key = this.studentKey;
+      console.log("nota",newNote) 
+      // this.db.list("/students/"+this.studentKey+"/notes/").push(newNote);
+      this.database.addNote(newNote)
     }
   }
 
@@ -195,7 +242,7 @@ export class StudentsComponent implements OnInit {
         }) 
         console.log("Array: "+newArray)
         console.log("Characteristic: "+characteristics)
-        console.log("Resultado",this.networkService.evaluate(newArray));
+        // console.log("Resultado",this.networkService.evaluate(newArray));
         let svmInput = "";
         for(let i=0;i<newArray.length;i++){
           svmInput = svmInput.concat(newArray[i].toString())
@@ -209,13 +256,16 @@ export class StudentsComponent implements OnInit {
           let result ={
             date: new Date().getFullYear()+"-"+ this.months[new Date().getMonth()]+"-"+ new Date().getDate() ,
             characteristics: characteristics,
-            percentage: svmResult[0]
+            percentage: svmResult[0],
+            student_key: this.studentKey
           }
-          this.db.list("/students/"+this.studentKey+"/results/").push(result);
+          this.database.addResult(result)
+          // this.db.list("/students/"+this.studentKey+"/results/").push(result);
           let lastPercentage = {
             percentage: result.percentage
           };
-          this.db.list('/students/').update(this.studentKey,lastPercentage)
+          //this.db.list('/students/').update(this.studentKey,lastPercentage)
+          this.database.updateUserByID(this.studentKey,lastPercentage)
         }) 
     }
   }
@@ -223,7 +273,8 @@ export class StudentsComponent implements OnInit {
   updateStatus(id){
     var updates = [];
     console.log("Status",this.statusForm.value)
-    this.db.list('/students/').update(this.studentKey,this.statusForm.value)
+    // this.db.list('/students/').update(this.studentKey,this.statusForm.value)
+    this.database.updateStudentByID(this.studentKey, this.statusForm.value);
   }
 
   updateTutor(id){
@@ -238,7 +289,8 @@ export class StudentsComponent implements OnInit {
       tutor_name: tutor[0].name
     }
     console.log("Tutor_Key",this.reassignForm.value)
-    this.db.list('/students/').update(this.studentKey,newTutor)
+    this.database.updateStudentByID(this.studentKey,this.reassignForm.value)
+   // this.db.list('/students/').update(this.studentKey,newTutor)
   }
 
 
@@ -307,38 +359,8 @@ export class StudentsComponent implements OnInit {
   model=[
     {date: '20-01-2018',
     characteristics: 'caracteristica1, caracteristica2, caracteristica3',
-    percentage: '70%',
+    percentage: 70,
     period: '1718-1'
-    },
-    {date: '20-01-2018',
-    characteristics: 'caracteristica1, caracteristica2, caracteristica3',
-    percentage: '70%',
-    period: '1718-1'
-    },
-    {date: '20-01-2018',
-    characteristics: 'caracteristica1, caracteristica2, caracteristica3',
-    percentage: '70%',
-    period: '1718-1'
-    },
-    {date: '20-01-2018',
-    characteristics: 'caracteristica1, caracteristica2, caracteristica3',
-    percentage: '70%',
-    period: '1718-1'
-    },
-    {date: '20-01-2018',
-    characteristics: 'caracteristica1, caracteristica2, caracteristica3',
-    percentage: '70%',
-    period: '1718-1'
-    },
-    {date: '20-01-2018',
-    characteristics: 'caracteristica1, caracteristica2, caracteristica3',
-    percentage: '70%',
-    period: '1718-1'
-    },
-    {date: '20-01-2018',
-    characteristics: 'caracteristica1, caracteristica2, caracteristica3',
-    percentage: '100%',
-    period: '1819-1'
-    },
+    }
   ]
 }

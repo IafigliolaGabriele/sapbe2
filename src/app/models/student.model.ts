@@ -1,34 +1,16 @@
+import { Note } from './note.model'
+import { Result } from './result.model'
+
 export class Student {
-    _key: string
-    name: string
+    _key: String
+    name: String
     percentage: number
-    period: string
+    period: String
     personalId: number
-    status: string
-    tutor_key: string
-    tutor_name: string
-    type: string
+    status: String
+    tutor_key: String
+    tutor_name: String
+    type: String
     notes: [Note]
     results: [Result]
-}
-
-export class Note {
-    _key: String
-    date: string
-    type: string
-    content: string
-}
-
-export class Result{
-    _key: String
-    date: string
-    characteristics: string
-    percentage: number
-}
-
-export class Tutor {
-    _key: String
-    email: string
-    username: string
-    role: string
 }

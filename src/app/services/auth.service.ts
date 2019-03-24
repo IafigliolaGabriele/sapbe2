@@ -2,6 +2,7 @@ import { SharedService } from './shared.service';
 import { Injectable, EventEmitter } from '@angular/core';
 import { AngularFireAuth } from 'angularfire2/auth';
 import { AngularFireDatabase } from 'angularfire2/database';
+import { AngularFirestore } from 'angularfire2/firestore';
 import * as firebase from 'firebase/app';
 import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -17,7 +18,12 @@ export class AuthService {
   currentUser = new EventEmitter();
   userKey: any;
 
-  constructor(public afAuth: AngularFireAuth, private router: Router, private db: AngularFireDatabase,  private sharedService: SharedService) {
+  constructor(
+    public afAuth: AngularFireAuth, 
+    private router: Router, 
+    //private db: AngularFireDatabase,  
+    private sharedService: SharedService,
+    private db: AngularFirestore) {
     this.afAuth.auth.onAuthStateChanged(
       (auth) => {
         if (auth != null) {
@@ -33,10 +39,23 @@ export class AuthService {
       firebase.auth().createUserWithEmailAndPassword(value.email, value.password)
       .then((user) => {
         //resolve(res);
-        this.db.database.ref().child('users/'+user.user.uid).set({
+        this.db.collection("users").doc(user.user.uid).set({
           username: value.username,
           email: value.email,
-        });
+          admin: false
+         })
+         console.log("User",user);
+          user.user.updateProfile({
+            displayName: value.username,
+            photoURL: "none"
+          }).then(function() {
+            console.log("Succes")
+            // Update successful.
+          }).catch(function(error) {
+            console.log("Failure")
+            // An error happened.
+          });
+        resolve(true)
       }, err => reject(err))
     })
   }

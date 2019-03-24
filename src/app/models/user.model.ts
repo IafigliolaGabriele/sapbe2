@@ -1,10 +1,17 @@
 export class FirebaseUserModel {
-  $key : string;
-  name: string;
-  email: string;
+  $key : String;
+  name: String;
+  email: String;
 
   constructor() {
     /* this.name = "";
     this.email = ""; */
   }
 }
+
+export class User {
+  key: String
+  email: String;
+  username: String;
+  admin: boolean;
+} 
